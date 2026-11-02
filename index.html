@@ -97,7 +97,7 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
 <header>
   <p class="label">Architecture overview</p>
   <h1>Lacia</h1>
-  <p class="lead">Lacia is a control system that keeps AI coding agents on track across long projects. It records what happened, works out what comes next from those records, and stops at set points for a person's decision.</p>
+  <p class="lead">Lacia is a control system that keeps AI coding agents on track across long projects. It records what happened, works out what comes next from those records, and stops at set points for a person's decision. Its core idea is loop engineering, which means designing the loop an agent works in.</p>
   <dl class="facts">
     <div><dt>Author</dt><dd>Changwoo Park (arclights)</dd></div>
     <div><dt>Runs on</dt><dd>Claude Code, Codex</dd></div>
@@ -110,12 +110,12 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
 <section>
   <h2>What it does well</h2>
   <div class="strengths">
+    <div><h3>Used on its own development</h3><p>Lacia runs its own development. So far it has taken 21 plans from start to close, and the installed package has passed smoke tests on Windows and macOS.</p></div>
     <div><h3>Long work survives the session</h3><p>Each new session recomputes where the work stands from permanent records, so progress does not depend on chat memory.</p></div>
     <div><h3>Crashes do not repeat actions</h3><p>When a crash leaves an action in doubt, Lacia marks it unknown and does not run it again.</p></div>
     <div><h3>Finished work stays checked</h3><p>Status is computed from the records and file hashes, so work that has gone out of date shows up as stale.</p></div>
     <div><h3>People keep the key decisions</h3><p>Seven named decisions wait for the user, and an agent's own tool call is rejected as approval.</p></div>
     <div><h3>Review is tested with data</h3><p>On 18 real bug fixes, Lacia's reviewer found 65 of 74 serious bugs, against 41 for /code-review.</p></div>
-    <div><h3>One design for two agents</h3><p>Its CLI, MCP tools and skills for Claude Code and Codex come mainly from one catalog file.</p></div>
   </div>
 </section>
 
@@ -184,7 +184,7 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
 
 <section>
   <h2>The session loop</h2>
-  <p class="note">Lacia's policy fixes the steps of a session. The agent chooses the timing inside a step, and every step writes to the records. The next session starts from those records, which closes the loop.</p>
+  <p class="note">Lacia's policy defines the steps of a session. The agent chooses the timing inside a step, and progress is kept in the records. The next session starts from those records, which closes the loop.</p>
   <p class="hint">Scroll the graph sideways on a narrow screen.</p>
   <div class="graph">
     <svg viewBox="0 0 960 296" role="img" aria-label="Eight steps from start to hand off, with user decisions under five of them. The steps write to the records, and the next session reads the records at start.">
@@ -219,6 +219,16 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
     </svg>
   </div>
   <p class="anytime">The user decides at seven named points. Five are shown above. At any step the user can also answer the agent's questions or stop the work at once.</p>
+</section>
+
+<section>
+  <h2>Automated work, AI inference and user decisions</h2>
+  <p class="note">Each kind of work has one owner. Anything that can be computed goes to code, and anything that needs interpretation goes to the model.</p>
+  <div class="strengths">
+    <div><h3>Automated by code</h3><p>Task state from a fixed rule ladder, whether finished work is still current from digests and hashes, crash handling through saved request phases, and context limits and close gates.</p></div>
+    <div><h3>Left to AI inference</h3><p>Interpreting the task, planning, writing the code and reviewing changes. Code checks declared criteria only and does not decide whether work is good enough.</p></div>
+    <div><h3>Left to the user</h3><p>Seven named decisions, such as changing the plan, taking hard-to-undo actions and accepting results.</p></div>
+  </div>
 </section>
 
 <section>
@@ -440,11 +450,11 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
       </tbody>
     </table>
   </div>
-  <p class="note">32 bugs were found by both tools. Lacia's reviewer also saw each task's description. An AI of the same model family labeled the findings, and bugs both tools missed are not counted.</p>
+  <p class="note">Of the 74, 32 were found by both tools, 33 only by Lacia and 9 only by /code-review. Lacia's reviewer had the advantage of seeing each task's description. An AI of the same model family labeled the findings, and bugs both tools missed are not counted.</p>
   <p class="note">This comparison led to the current design of two reviewers plus a verification step.</p>
 </section>
 
-<footer>Changwoo Park (arclights). <a href="https://www.linkedin.com/in/changwoo-park-4b94b1410/">LinkedIn</a></footer>
+<footer>Changwoo Park (arclights). November 2026. <a href="https://www.linkedin.com/in/changwoo-park-4b94b1410/">LinkedIn</a></footer>
 </main>
 </body>
 </html>
