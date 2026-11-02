@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lacia Architecture</title>
+<meta name="description" content="Lacia keeps AI coding agents on track across long projects. Architecture graph, session loop, design decisions and measured results.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: one reading column in the form of an engineering record sheet; blue marks records, rose marks every point where a person decides */
+:root{
+  --bg:#f5f7f7;--panel:#ffffff;--ink:#17242b;--muted:#51626c;--rule:#c4d0d5;--line:#5d707b;
+  --record:#1f5f7a;--record-soft:#e1eff4;--user:#a12f4f;--user-soft:#fae6ec;
+  --sans:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#12181c;--panel:#192126;--ink:#e3eaed;--muted:#a3b2ba;--rule:#3b4a53;--line:#8fa2ad;
+  --record:#79bfdc;--record-soft:#1b3440;--user:#f094ad;--user-soft:#3c1f29;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12181c;--panel:#192126;--ink:#e3eaed;--muted:#a3b2ba;--rule:#3b4a53;--line:#8fa2ad;
+  --record:#79bfdc;--record-soft:#1b3440;--user:#f094ad;--user-soft:#3c1f29;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6}
+main{max-width:980px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 56px;display:grid;gap:40px}
+h1,h2,h3{text-wrap:balance;line-height:1.25;margin:0}
+h1{font-size:40px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:700;padding-top:18px;border-top:2px solid var(--ink)}
+h3{font-size:16px;font-weight:600}
+p{margin:0}
+section{display:grid;gap:16px;min-width:0}
+.lead{font-size:19px;max-width:65ch}
+.note{color:var(--muted);max-width:70ch}
+.label{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+header{display:grid;gap:14px}
+.facts{display:flex;flex-wrap:wrap;gap:10px 32px;margin:6px 0 0}
+.facts div{min-width:0}
+.facts dt{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.facts dd{margin:0}
+.strengths{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.strengths div{background:var(--panel);border:1px solid var(--rule);padding:14px;display:grid;gap:6px;align-content:start;min-width:0}
+.strengths p{color:var(--muted);font-size:15px;line-height:1.5}
+.graph{overflow-x:auto;background:var(--panel);border:1px solid var(--rule)}
+.graph svg{display:block;width:100%;min-width:780px;height:auto}
+.hint{display:none;color:var(--muted);font-size:14px}
+.t{fill:var(--ink);font-size:13px;font-family:var(--sans)}
+.b{fill:var(--ink);font-size:14px;font-weight:600;font-family:var(--sans)}
+.m{fill:var(--ink);font-size:13px;font-weight:600;font-family:var(--mono)}
+.s{fill:var(--muted);font-size:12px;font-family:var(--sans)}
+.z{fill:var(--muted);font-size:13px;font-weight:600;font-family:var(--sans)}
+.u{fill:var(--user);font-size:12px;font-family:var(--sans)}
+.h{paint-order:stroke;stroke:var(--panel);stroke-width:6px;stroke-linejoin:round}
+.bx{fill:var(--panel);stroke:var(--rule);stroke-width:1.3}
+.rc{fill:var(--record-soft);stroke:var(--record);stroke-width:1.5}
+.us{fill:var(--user-soft);stroke:var(--user);stroke-width:1.2}
+.zn{fill:var(--bg);stroke:var(--rule);stroke-width:1.2}
+.e{fill:none;stroke:var(--line);stroke-width:1.5}
+.ah{fill:var(--line)}
+.anytime{font-size:14px;color:var(--user);background:var(--user-soft);padding:8px 12px}
+.maps{display:grid;gap:28px}
+.map{display:grid;gap:10px;min-width:0}
+.map>p{color:var(--muted);font-size:15px;max-width:72ch}
+.lane{font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.flow{display:flex;flex-wrap:wrap;gap:8px 6px;align-items:stretch}
+.node{background:var(--panel);border:1px solid var(--rule);padding:8px 10px;font-size:14px;line-height:1.35;flex:1 1 128px;min-width:0;display:grid;gap:2px;align-content:start}
+.node b{font-weight:600}
+.node span{color:var(--muted);font-size:13px}
+.node code,.ladder code{font-family:var(--mono);font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.node.rec{background:var(--record-soft);border-color:var(--record)}
+.node.ask{background:var(--user-soft);border-color:var(--user)}
+.node.ask b,.node.ask span{color:var(--user)}
+.to{align-self:center;color:var(--line);font-family:var(--mono);font-size:15px}
+.ladder{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 18px;counter-reset:rung;background:var(--panel);border:1px solid var(--rule);padding:10px 12px}
+.ladder li{counter-increment:rung;font-size:14px;line-height:1.35;min-width:0;color:var(--muted)}
+.ladder li::before{content:counter(rung) " ";font-family:var(--mono);font-size:12px;color:var(--record)}
+@media (max-width:600px){.ladder{grid-template-columns:minmax(0,1fr)}}
+.decisions{display:grid;gap:18px}
+.decisions>div{display:grid;grid-template-columns:230px minmax(0,1fr);gap:6px 20px;padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.decisions>div:last-child{border-bottom:0;padding-bottom:0}
+.decisions p{min-width:0;color:var(--muted);font-size:15px}
+.table{overflow-x:auto;background:var(--panel);border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:15px}
+th,td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--rule)}
+tr:last-child td{border-bottom:0}
+th{font-weight:600}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+footer{color:var(--muted);font-size:14px;border-top:1px solid var(--rule);padding-top:14px}
+a{color:var(--record)}
+a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
+@media (max-width:820px){.hint{display:block}.strengths{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:760px){.decisions>div{grid-template-columns:minmax(0,1fr)}h1{font-size:34px}.lead{font-size:18px}}
+@media (max-width:520px){.strengths{grid-template-columns:minmax(0,1fr)}}
+</style>
+<style>body{margin:0}img{max-width:100%}</style>
+</head>
+<body>
+<main>
+<header>
+  <p class="label">Architecture overview</p>
+  <h1>Lacia</h1>
+  <p class="lead">Lacia is a control system that keeps AI coding agents on track across long projects. It records what happened, works out what comes next from those records, and stops at set points for a person's decision.</p>
+  <dl class="facts">
+    <div><dt>Author</dt><dd>Changwoo Park</dd></div>
+    <div><dt>Runs on</dt><dd>Claude Code, Codex</dd></div>
+    <div><dt>Built with</dt><dd>Python, Node.js, AI coding agents</dd></div>
+    <div><dt>Period</dt><dd>2026 to present</dd></div>
+    <div><dt>Source</dt><dd>Private repository</dd></div>
+  </dl>
+</header>
+
+<section>
+  <h2>What it does well</h2>
+  <div class="strengths">
+    <div><h3>Long work survives the session</h3><p>Each new session recomputes where the work stands from permanent records, so progress does not depend on chat memory.</p></div>
+    <div><h3>Crashes do not repeat actions</h3><p>When a crash leaves an action in doubt, Lacia marks it unknown and does not run it again.</p></div>
+    <div><h3>Finished work stays checked</h3><p>Status is computed from the records and file hashes, so work that has gone out of date shows up as stale.</p></div>
+    <div><h3>People keep the key decisions</h3><p>Seven named decisions wait for the user, and an agent's own tool call is rejected as approval.</p></div>
+    <div><h3>Review is tested with data</h3><p>On 18 real bug fixes, Lacia's reviewer found 65 of 74 serious bugs, against 41 for /code-review.</p></div>
+    <div><h3>One design for two agents</h3><p>Its CLI, MCP tools and skills for Claude Code and Codex come mainly from one catalog file.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>System architecture</h2>
+  <p class="hint">Scroll the graph sideways on a narrow screen.</p>
+  <div class="graph">
+    <svg viewBox="0 0 960 590" role="img" aria-label="Layered architecture: the user, the policy loop, the AI agent and hooks call one entry surface, which leads to eight modules, then engine services, then the project repository and the Lacia home folder.">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+      <rect class="us" x="20" y="14" width="190" height="62"/><text class="b" x="115" y="40" text-anchor="middle">User</text><text class="s" x="115" y="60" text-anchor="middle">decides at seven named points</text>
+      <rect class="bx" x="236" y="14" width="230" height="62"/><text class="b" x="351" y="40" text-anchor="middle">Policy loop</text><text class="s" x="351" y="60" text-anchor="middle">fixed verbs at fixed steps</text>
+      <rect class="bx" x="492" y="14" width="220" height="62"/><text class="b" x="602" y="40" text-anchor="middle">AI coding agent</text><text class="s" x="602" y="60" text-anchor="middle">Claude Code, Codex</text>
+      <rect class="bx" x="738" y="14" width="202" height="62"/><text class="b" x="839" y="40" text-anchor="middle">Hooks</text><text class="s" x="839" y="60" text-anchor="middle">start context and notices</text>
+      <path class="e" d="M738,45 H714" marker-end="url(#a1)"/>
+      <path class="e" d="M115,76 V102" marker-end="url(#a1)"/><path class="e" d="M351,76 V102" marker-end="url(#a1)"/><path class="e" d="M602,76 V102" marker-end="url(#a1)"/>
+
+      <rect class="rc" x="20" y="104" width="920" height="72"/>
+      <text class="m" x="480" y="134" text-anchor="middle">Entry surface: lacia &lt;module&gt; &lt;verb&gt;</text>
+      <text class="t" x="480" y="156" text-anchor="middle">CLI, MCP tools and host skills, mainly generated from one catalog file</text>
+
+      <path class="e" d="M72,176 V202" marker-end="url(#a1)"/><path class="e" d="M188,176 V202" marker-end="url(#a1)"/><path class="e" d="M304,176 V202" marker-end="url(#a1)"/><path class="e" d="M420,176 V202" marker-end="url(#a1)"/><path class="e" d="M536,176 V202" marker-end="url(#a1)"/><path class="e" d="M652,176 V202" marker-end="url(#a1)"/><path class="e" d="M768,176 V202" marker-end="url(#a1)"/><path class="e" d="M884,176 V202" marker-end="url(#a1)"/>
+
+      <rect class="bx" x="20" y="204" width="105" height="84"/><text class="m" x="72" y="230" text-anchor="middle">project</text><text class="s" x="72" y="250" text-anchor="middle">connect a</text><text class="s" x="72" y="266" text-anchor="middle">repository</text>
+      <rect class="bx" x="136" y="204" width="105" height="84"/><text class="m" x="188" y="230" text-anchor="middle">plan</text><text class="s" x="188" y="250" text-anchor="middle">plans and</text><text class="s" x="188" y="266" text-anchor="middle">changes</text>
+      <rect class="bx" x="252" y="204" width="105" height="84"/><text class="m" x="304" y="230" text-anchor="middle">work</text><text class="s" x="304" y="250" text-anchor="middle">task steps</text><text class="s" x="304" y="266" text-anchor="middle">and review</text>
+      <rect class="bx" x="368" y="204" width="105" height="84"/><text class="m" x="420" y="230" text-anchor="middle">cardinal</text><text class="s" x="420" y="250" text-anchor="middle">computes</text><text class="s" x="420" y="266" text-anchor="middle">task state</text>
+      <rect class="bx" x="484" y="204" width="105" height="84"/><text class="m" x="536" y="230" text-anchor="middle">akashic</text><text class="s" x="536" y="250" text-anchor="middle">search and</text><text class="s" x="536" y="266" text-anchor="middle">impact</text>
+      <rect class="bx" x="600" y="204" width="105" height="84"/><text class="m" x="652" y="230" text-anchor="middle">knowledge</text><text class="s" x="652" y="250" text-anchor="middle">capture and</text><text class="s" x="652" y="266" text-anchor="middle">consolidate</text>
+      <rect class="bx" x="716" y="204" width="105" height="84"/><text class="m" x="768" y="230" text-anchor="middle">session</text><text class="s" x="768" y="250" text-anchor="middle">start and</text><text class="s" x="768" y="266" text-anchor="middle">handoff</text>
+      <rect class="bx" x="832" y="204" width="105" height="84"/><text class="m" x="884" y="230" text-anchor="middle">worktree</text><text class="s" x="884" y="250" text-anchor="middle">parallel</text><text class="s" x="884" y="266" text-anchor="middle">checkouts</text>
+
+      <path class="e" d="M72,288 V302 M188,288 V302 M304,288 V302 M420,288 V302 M536,288 V302 M652,288 V302 M768,288 V302 M884,288 V302 M72,302 H884"/>
+      <path class="e" d="M480,302 V314" marker-end="url(#a1)"/>
+
+      <rect class="zn" x="20" y="316" width="920" height="92"/>
+      <text class="z" x="32" y="335">Engine services</text>
+      <rect class="bx" x="30" y="344" width="140" height="52"/><text class="t" x="100" y="375" text-anchor="middle">File effects</text>
+      <rect class="bx" x="182" y="344" width="140" height="52"/><text class="t" x="252" y="375" text-anchor="middle">Verification runs</text>
+      <rect class="bx" x="334" y="344" width="140" height="52"/><text class="t" x="404" y="375" text-anchor="middle">Host execution</text>
+      <rect class="bx" x="486" y="344" width="140" height="52"/><text class="t" x="556" y="375" text-anchor="middle">Memory</text>
+      <rect class="bx" x="638" y="344" width="140" height="52"/><text class="t" x="708" y="375" text-anchor="middle">Install and update</text>
+      <rect class="bx" x="790" y="344" width="140" height="52"/><text class="t" x="860" y="375" text-anchor="middle">Policy, ownership</text>
+
+      <path class="e" d="M320,408 V434" marker-end="url(#a1)"/><path class="e" d="M790,408 V434" marker-end="url(#a1)"/>
+      <text class="s h" x="330" y="426">reads and writes</text>
+
+      <rect class="rc" x="20" y="436" width="600" height="140"/>
+      <text class="z" x="32" y="456" style="fill:var(--record)">Project repository: the records are the source of truth</text>
+      <rect class="bx" x="36" y="468" width="184" height="44"/><text class="t" x="128" y="495" text-anchor="middle">Plans</text>
+      <rect class="bx" x="228" y="468" width="184" height="44"/><text class="t" x="320" y="487" text-anchor="middle">Records: change,</text><text class="t" x="320" y="503" text-anchor="middle">completion, closure</text>
+      <rect class="bx" x="420" y="468" width="184" height="44"/><text class="t" x="512" y="495" text-anchor="middle">Review rounds</text>
+      <rect class="bx" x="36" y="520" width="184" height="44"/><text class="t" x="128" y="547" text-anchor="middle">Knowledge pages</text>
+      <rect class="bx" x="228" y="520" width="184" height="44"/><text class="t" x="320" y="547" text-anchor="middle">Project settings</text>
+      <rect class="bx" x="420" y="520" width="184" height="44"/><text class="t" x="512" y="547" text-anchor="middle">Current state in NEXT.md</text>
+
+      <rect class="zn" x="640" y="436" width="300" height="140"/>
+      <text class="z" x="652" y="456">Lacia home: one per device</text>
+      <rect class="bx" x="652" y="468" width="136" height="44"/><text class="t" x="720" y="487" text-anchor="middle">Requests</text><text class="t" x="720" y="503" text-anchor="middle">and stops</text>
+      <rect class="bx" x="796" y="468" width="136" height="44"/><text class="t" x="864" y="495" text-anchor="middle">Install records</text>
+      <rect class="bx" x="652" y="520" width="136" height="44"/><text class="t" x="720" y="539" text-anchor="middle">Own Python</text><text class="t" x="720" y="555" text-anchor="middle">runtime</text>
+      <rect class="bx" x="796" y="520" width="136" height="44"/><text class="t" x="864" y="539" text-anchor="middle">Search index</text><text class="t" x="864" y="555" text-anchor="middle">cache</text>
+    </svg>
+  </div>
+</section>
+
+<section>
+  <h2>The session loop</h2>
+  <p class="note">Lacia's policy fixes the steps of a session. The agent chooses the timing inside a step, and every step writes to the records. The next session starts from those records, which closes the loop.</p>
+  <p class="hint">Scroll the graph sideways on a narrow screen.</p>
+  <div class="graph">
+    <svg viewBox="0 0 960 296" role="img" aria-label="Eight steps from start to hand off, with user decisions under five of them. The steps write to the records, and the next session reads the records at start.">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+      <rect class="bx" x="16" y="24" width="103" height="62"/><text class="s" x="67" y="44" text-anchor="middle">1</text><text class="b" x="67" y="66" text-anchor="middle">Start</text>
+      <rect class="bx" x="133" y="24" width="103" height="62"/><text class="s" x="184" y="44" text-anchor="middle">2</text><text class="b" x="184" y="66" text-anchor="middle">Plan</text>
+      <rect class="bx" x="250" y="24" width="103" height="62"/><text class="s" x="301" y="44" text-anchor="middle">3</text><text class="b" x="301" y="66" text-anchor="middle">Open task</text>
+      <rect class="bx" x="367" y="24" width="103" height="62"/><text class="s" x="418" y="44" text-anchor="middle">4</text><text class="b" x="418" y="66" text-anchor="middle">Execute</text>
+      <rect class="bx" x="484" y="24" width="103" height="62"/><text class="s" x="535" y="44" text-anchor="middle">5</text><text class="b" x="535" y="66" text-anchor="middle">Review</text>
+      <rect class="bx" x="601" y="24" width="103" height="62"/><text class="s" x="652" y="44" text-anchor="middle">6</text><text class="b" x="652" y="66" text-anchor="middle">Close task</text>
+      <rect class="bx" x="718" y="24" width="103" height="62"/><text class="s" x="769" y="44" text-anchor="middle">7</text><text class="b" x="769" y="66" text-anchor="middle">Close unit</text>
+      <rect class="bx" x="835" y="24" width="103" height="62"/><text class="s" x="886" y="44" text-anchor="middle">8</text><text class="b" x="886" y="66" text-anchor="middle">Hand off</text>
+      <path class="e" d="M119,55 H131" marker-end="url(#a2)"/><path class="e" d="M236,55 H248" marker-end="url(#a2)"/><path class="e" d="M353,55 H365" marker-end="url(#a2)"/><path class="e" d="M470,55 H482" marker-end="url(#a2)"/><path class="e" d="M587,55 H599" marker-end="url(#a2)"/><path class="e" d="M704,55 H716" marker-end="url(#a2)"/><path class="e" d="M821,55 H833" marker-end="url(#a2)"/>
+
+      <path class="e" d="M67,86 V98 M184,86 V98 M418,86 V98 M652,86 V98 M769,86 V98"/>
+      <rect class="us" x="16" y="98" width="103" height="44"/><text class="u" x="67" y="116" text-anchor="middle">Choose</text><text class="u" x="67" y="132" text-anchor="middle">next work</text>
+      <rect class="us" x="133" y="98" width="103" height="44"/><text class="u" x="184" y="116" text-anchor="middle">Approve</text><text class="u" x="184" y="132" text-anchor="middle">plan change</text>
+      <rect class="us" x="367" y="98" width="103" height="44"/><text class="u" x="418" y="116" text-anchor="middle">Authorize hard-</text><text class="u" x="418" y="132" text-anchor="middle">to-undo effects</text>
+      <rect class="us" x="601" y="98" width="103" height="44"/><text class="u" x="652" y="116" text-anchor="middle">Accept</text><text class="u" x="652" y="132" text-anchor="middle">task results</text>
+      <rect class="us" x="718" y="98" width="103" height="44"/><text class="u" x="769" y="116" text-anchor="middle">Accept spec</text><text class="u" x="769" y="132" text-anchor="middle">and results</text>
+
+      <path class="e" d="M67,184 V144" marker-end="url(#a2)"/>
+      <path class="e" d="M184,142 V182" marker-end="url(#a2)"/><path class="e" d="M301,86 V182" marker-end="url(#a2)"/><path class="e" d="M418,142 V182" marker-end="url(#a2)"/><path class="e" d="M535,86 V182" marker-end="url(#a2)"/><path class="e" d="M652,142 V182" marker-end="url(#a2)"/><path class="e" d="M769,142 V182" marker-end="url(#a2)"/><path class="e" d="M886,86 V182" marker-end="url(#a2)"/>
+      <text class="s h" x="75" y="167">reads</text><text class="s h" x="192" y="167">writes</text>
+
+      <rect class="rc" x="16" y="184" width="922" height="48"/>
+      <text class="b" x="477" y="213" text-anchor="middle" style="fill:var(--record)">Records in the project repository: plans, changes, completions, closures, review rounds</text>
+
+      <path class="e" d="M938,55 H952 V262 H6 V55 H14" marker-end="url(#a2)"/>
+      <text class="s h" x="480" y="266" text-anchor="middle">The next session recomputes the state from the records</text>
+    </svg>
+  </div>
+  <p class="anytime">The user decides at seven named points. Five are shown above. At any step the user can also answer the agent's questions or stop the work at once.</p>
+</section>
+
+<section>
+  <h2>Plan structure</h2>
+  <p class="note">A plan holds the agreed work. Records hold what has happened to it. Keeping them apart lets Lacia recompute whether finished work still holds.</p>
+  <p class="hint">Scroll the graph sideways on a narrow screen.</p>
+  <div class="graph">
+    <svg viewBox="0 0 960 476" role="img" aria-label="A plan file holds status, prose, a handoff region and a contract block. The contract digest and input hash decide whether finished work is current, stale or invalid. Plan changes go through preview and user approval to a change record. Finished work goes through plan record and plan close to a close record.">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+      <rect class="zn" x="16" y="14" width="310" height="262"/>
+      <text class="z" x="28" y="34">Plan file</text>
+      <rect class="bx" x="30" y="44" width="282" height="32"/><text class="t" x="171" y="65" text-anchor="middle">Status in the front matter</text>
+      <rect class="bx" x="30" y="84" width="282" height="32"/><text class="t" x="171" y="105" text-anchor="middle">Prose for people</text>
+      <rect class="bx" x="30" y="124" width="282" height="32"/><text class="t" x="171" y="145" text-anchor="middle">Handoff region</text>
+      <rect class="rc" x="30" y="164" width="282" height="100"/>
+      <text class="b" x="171" y="186" text-anchor="middle">Contract block</text>
+      <text class="s" x="171" y="206" text-anchor="middle">goal, requirements, features</text>
+      <text class="s" x="171" y="224" text-anchor="middle">tasks with targets and criteria</text>
+      <text class="s" x="171" y="242" text-anchor="middle">dependencies, owned areas, parent plan</text>
+
+      <text class="z" x="372" y="34">Does finished work still hold?</text>
+      <rect class="bx" x="372" y="44" width="230" height="72"/><text class="b" x="487" y="70" text-anchor="middle">Contract digest</text><text class="s" x="487" y="90" text-anchor="middle">criteria, requirements,</text><text class="s" x="487" y="106" text-anchor="middle">dependency contracts</text>
+      <rect class="bx" x="372" y="128" width="230" height="72"/><text class="b" x="487" y="154" text-anchor="middle">Input hash</text><text class="s" x="487" y="174" text-anchor="middle">task targets and</text><text class="s" x="487" y="190" text-anchor="middle">referenced files</text>
+      <path class="e" d="M312,214 H344 V80 H370" marker-end="url(#a3)"/><path class="e" d="M344,164 H370" marker-end="url(#a3)"/>
+
+      <path class="e" d="M602,80 H626 M602,164 H626 M626,66 V178"/>
+      <path class="e" d="M626,66 H648" marker-end="url(#a3)"/><path class="e" d="M626,122 H648" marker-end="url(#a3)"/><path class="e" d="M626,178 H648" marker-end="url(#a3)"/>
+      <rect class="bx" x="650" y="44" width="280" height="44"/><text class="t" x="664" y="71"><tspan style="font-weight:600">current</tspan>: contract and inputs still match</text>
+      <rect class="bx" x="650" y="100" width="280" height="44"/><text class="t" x="664" y="127"><tspan style="font-weight:600">stale</tspan>: inputs changed or targets grew</text>
+      <rect class="bx" x="650" y="156" width="280" height="44"/><text class="t" x="664" y="183"><tspan style="font-weight:600">invalid</tspan>: reported with its cause</text>
+      <rect class="bx" x="650" y="212" width="280" height="56"/><text class="b" x="664" y="234">Tree verification</text><text class="s" x="664" y="254">full passing run keeps work current</text>
+      <path class="e" d="M930,240 H946 V66 H932" marker-end="url(#a3)"/>
+
+      <text class="z" x="16" y="306">Changing a plan</text>
+      <rect class="bx" x="16" y="316" width="130" height="58"/><text class="b" x="81" y="340" text-anchor="middle">Plan context</text><text class="s" x="81" y="360" text-anchor="middle">within 32 KB</text>
+      <rect class="bx" x="160" y="316" width="130" height="58"/><text class="b" x="225" y="340" text-anchor="middle">Preview</text><text class="s" x="225" y="360" text-anchor="middle">runs the lint</text>
+      <rect class="us" x="304" y="316" width="150" height="58"/><text class="b" x="379" y="340" text-anchor="middle" style="fill:var(--user)">Briefing</text><text class="u" x="379" y="360" text-anchor="middle">user approves</text>
+      <rect class="bx" x="468" y="316" width="130" height="58"/><text class="b" x="533" y="340" text-anchor="middle">Apply or edit</text><text class="s" x="533" y="360" text-anchor="middle">prose or contract</text>
+      <rect class="bx" x="612" y="316" width="150" height="58"/><text class="b" x="687" y="350" text-anchor="middle">Change record</text>
+      <path class="e" d="M146,345 H158" marker-end="url(#a3)"/><path class="e" d="M290,345 H302" marker-end="url(#a3)"/><path class="e" d="M454,345 H466" marker-end="url(#a3)"/><path class="e" d="M598,345 H610" marker-end="url(#a3)"/>
+
+      <text class="z" x="16" y="396">Finishing work</text>
+      <rect class="bx" x="16" y="406" width="190" height="58"/><text class="b" x="111" y="430" text-anchor="middle">Plan record</text><text class="s" x="111" y="450" text-anchor="middle">writes a completion</text>
+      <rect class="bx" x="220" y="406" width="190" height="58"/><text class="b" x="315" y="430" text-anchor="middle">Plan close</text><text class="s" x="315" y="450" text-anchor="middle">checks the whole unit</text>
+      <rect class="bx" x="424" y="406" width="174" height="58"/><text class="b" x="511" y="430" text-anchor="middle">Close record</text><text class="s" x="511" y="450" text-anchor="middle">this is what closes a plan</text>
+      <path class="e" d="M206,435 H218" marker-end="url(#a3)"/><path class="e" d="M410,435 H422" marker-end="url(#a3)"/>
+
+      <rect class="rc" x="776" y="316" width="168" height="148"/>
+      <text class="b" x="860" y="366" text-anchor="middle" style="fill:var(--record)">Records folder</text>
+      <text class="s" x="860" y="388" text-anchor="middle">one JSON file per</text><text class="s" x="860" y="404" text-anchor="middle">change, completion</text><text class="s" x="860" y="420" text-anchor="middle">or close</text>
+      <path class="e" d="M762,345 H774" marker-end="url(#a3)"/><path class="e" d="M598,435 H774" marker-end="url(#a3)"/>
+    </svg>
+  </div>
+  <p class="lane">Between plans</p>
+  <div class="flow">
+    <div class="node"><b>Linked hierarchy</b><span>One parent per plan. Cycles are refused. Progress rolls up by computation.</span></div>
+    <div class="node"><b>Dependencies across plans</b><span>A task can depend on another plan's task and consume its output.</span></div>
+    <div class="node"><b>Dispositions</b><span>A task can be abandoned, moved, split or merged, and this stays on record.</span></div>
+    <div class="node"><b>Owned areas</b><span>Features own areas of the project, which routes follow-up work.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Feature maps</h2>
+  <div class="maps">
+
+    <article class="map">
+      <h3>Task state</h3>
+      <p>Cardinal reads records and returns one state per task. The caller gives no judgment. The first matching rule wins.</p>
+      <div class="flow">
+        <div class="node"><b>Plans</b><span>task sources</span></div>
+        <div class="node rec"><b>Records</b><span>changes, completions</span></div>
+        <div class="node"><b>Lacia home</b><span>requests, stops</span></div>
+      </div>
+      <ol class="ladder">
+        <li><code>unknown</code> a request is dispatching or unknown</li>
+        <li><code>disposed</code> abandoned, moved, split or merged</li>
+        <li><code>stopped</code> the owner has stopped</li>
+        <li><code>open</code> an owner has not completed</li>
+        <li><code>complete</code> current, stale or invalid</li>
+        <li><code>blocked</code> older plans only</li>
+        <li><code>waiting</code> dependencies have no usable completion</li>
+        <li><code>ready</code> none of the above</li>
+      </ol>
+      <div class="flow"><div class="node"><b>Output</b><span>Status, the next ready task, and why each task is in its state. Changes outside any task are listed and do not block work.</span></div></div>
+    </article>
+
+    <article class="map">
+      <h3>Work pipeline</h3>
+      <p>One task runs from selection to a checked completion. Execution is refused if the inputs changed after preparation.</p>
+      <div class="flow">
+        <div class="node"><code>cardinal ready</code><span>next task</span></div><span class="to">→</span>
+        <div class="node"><code>work open</code><span>refuses another checkout's task</span></div><span class="to">→</span>
+        <div class="node"><code>akashic impact</code><span>what it touches</span></div><span class="to">→</span>
+        <div class="node"><code>work prepare</code><span>contract, evidence, action</span></div><span class="to">→</span>
+        <div class="node"><b>Host tools</b><span>edit the files</span></div><span class="to">→</span>
+        <div class="node"><code>work execute</code><span>checks the inputs</span></div><span class="to">→</span>
+        <div class="node"><code>work close</code><span>review gate</span></div><span class="to">→</span>
+        <div class="node rec"><b>Completion record</b><span>in the repository</span></div><span class="to">→</span>
+        <div class="node"><code>cardinal done</code><span>read-back check</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Code review</h3>
+      <p>Reviewers work in an empty folder through read-only tools over git objects. Lacia checks from the tool log that every changed file was read.</p>
+      <div class="flow">
+        <div class="node"><b>Inputs</b><span>evidence bundle, review rules, task card</span></div><span class="to">→</span>
+        <div class="node"><b>Split</b><span>changes over 1,500 diff lines go by file</span></div><span class="to">→</span>
+        <div class="node"><b>Finder A</b><span>sees the task and rules</span></div>
+        <div class="node"><b>Finder B</b><span>sees only the code</span></div>
+        <div class="node"><b>Security finder</b><span>medium and high tiers</span></div><span class="to">→</span>
+        <div class="node"><b>Verification</b><span>merges duplicates, drops only what it shows wrong</span></div><span class="to">→</span>
+        <div class="node rec"><b>Round record</b><span>findings and answers</span></div><span class="to">→</span>
+        <div class="node"><b>Close gate</b><span>holds on open important or security findings</span></div><span class="to">→</span>
+        <div class="node ask"><b>User</b><span>accepts where the mode asks</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Session start and handoff</h3>
+      <p>The start context is rebuilt from records on every session. A handoff is refused if the plan changed underneath it.</p>
+      <p class="lane">Start</p>
+      <div class="flow">
+        <div class="node rec"><b>Records</b><span>never the handoff text</span></div><span class="to">→</span>
+        <div class="node"><code>session start</code><span>state, handoff note, loop summary, layout map</span></div><span class="to">→</span>
+        <div class="node"><b>Size cap</b><span>8,192 bytes, cut with a visible line</span></div><span class="to">→</span>
+        <div class="node"><b>Start hook</b><span>gives the agent its context</span></div>
+      </div>
+      <p class="lane">Handoff</p>
+      <div class="flow">
+        <div class="node"><code>session handoff</code><span>note and expected versions</span></div><span class="to">→</span>
+        <div class="node"><b>Refuses when</b><span>a version differs, or the result would break the plan</span></div><span class="to">→</span>
+        <div class="node rec"><b>Two regions written</b><span>plan handoff and NEXT.md</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Knowledge pipeline</h3>
+      <p>Decisions are captured when they happen and become pages when a unit of work closes.</p>
+      <div class="flow">
+        <div class="node"><code>knowledge capture</code><span>one entry, up to 2,048 bytes, secret screen</span></div><span class="to">→</span>
+        <div class="node rec"><b>Fragments</b><span>decision, finding, rejection, risk and more</span></div><span class="to">→</span>
+        <div class="node"><code>knowledge consolidate</code><span>draft by kind</span></div><span class="to">→</span>
+        <div class="node"><b>Agent writes pages</b><span>one review</span></div><span class="to">→</span>
+        <div class="node rec"><b>Applied</b><span>archive, log entry, regenerated index</span></div><span class="to">→</span>
+        <div class="node"><code>plan close</code><span>held while fragments remain</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Search and impact</h3>
+      <p>Akashic relates evidence for the agent. It ranks and never decides.</p>
+      <div class="flow">
+        <div class="node"><b>Inputs</b><span>pages, fragments, plan tasks, code paths, results, records</span></div><span class="to">→</span>
+        <div class="node"><b>Index cache</b><span>keyed by input hash, rebuilt from records</span></div><span class="to">→</span>
+        <div class="node"><b>Ranking</b><span>word search, or PageRank for a unit</span></div><span class="to">→</span>
+        <div class="node"><b>Output</b><span>map, related, context and impact</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Project connection and worktrees</h3>
+      <p>Connecting creates only what is missing. One project can then run in several git checkouts that share one Lacia home.</p>
+      <p class="lane">Connect</p>
+      <div class="flow">
+        <div class="node"><code>project status</code><span>snapshot of the working state</span></div><span class="to">→</span>
+        <div class="node ask"><b>User choices</b><span>language, review mode</span></div><span class="to">→</span>
+        <div class="node"><b>Init</b><span>creates missing locations, never overwrites</span></div><span class="to">→</span>
+        <div class="node"><b>Configure</b><span>project settings</span></div><span class="to">→</span>
+        <div class="node rec"><b>First baseline</b><span>start of change tracking</span></div>
+      </div>
+      <p class="lane">Worktrees</p>
+      <div class="flow">
+        <div class="node"><code>worktree create</code><span>own branch and baseline</span></div><span class="to">→</span>
+        <div class="node"><b>Task ownership</b><span>another checkout's task is refused until transferred</span></div><span class="to">→</span>
+        <div class="node rec"><b>Record merges</b><span>one file per entry keeps conflicts small</span></div><span class="to">→</span>
+        <div class="node"><b>Clean-up</b><span>list, prune, remove, with held work protected</span></div>
+      </div>
+    </article>
+
+    <article class="map">
+      <h3>Entry points and drift</h3>
+      <p>One catalog describes the commands. Installed files are compared with what was recorded at install time.</p>
+      <div class="flow">
+        <div class="node rec"><b>catalog.json</b><span>modules, verbs, flags</span></div><span class="to">→</span>
+        <div class="node"><b>Generated</b><span>CLI parser, MCP tools, host skills, doc tables</span></div><span class="to">→</span>
+        <div class="node"><b>Installed files</b><span>compared with the install record</span></div><span class="to">→</span>
+        <div class="node"><b>If changed</b><span>start verbs are refused</span></div><span class="to">→</span>
+        <div class="node"><code>lacia repair</code><span>rewrites them</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <h2>Main design decisions</h2>
+  <div class="decisions">
+    <div><h3>Records are the source of truth</h3><p>Plans, changes, completions and closures are written as records in the project repository. Each record's file name contains the hash of its content, and loading rejects a mismatch. Task state is worked out on each read by the first matching rule over the records.</p></div>
+    <div><h3>Finished work is rechecked</h3><p>A completion is computed as current, stale or invalid from digests of the task contract and its inputs. When an input changes later, the work shows up as stale.</p></div>
+    <div><h3>A crash never causes a repeat</h3><p>A request is saved as dispatching before its effect starts. If it dies there, it stays unknown until its original receipt is found or the user releases it with a recorded reason. Lacia does not run it again.</p></div>
+    <div><h3>Context has a budget</h3><p>Plan tasks get 32 KiB of context by default. Optional parts fall back to pointers. Required parts that do not fit stop the dispatch and are not cut silently.</p></div>
+    <div><h3>Review is kept apart from the work</h3><p>Reviewers run in an empty folder with read-only review tools. Above the low-risk tier, two finders read each part of a change: one sees the task, the other only the code. A verification call merges duplicates and drops only findings it shows wrong. A review that leaves a changed file unread counts as no review.</p></div>
+    <div><h3>Installed files stay in step</h3><p>If an installed entry file has drifted from the catalog, start verbs are refused until it is repaired.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Measured result</h2>
+  <p class="note">Two code reviewers ran side by side on 18 real bug fixes with the same AI model and effort.</p>
+  <div class="table">
+    <table>
+      <thead><tr><th>Measure</th><th class="n">Lacia</th><th class="n">/code-review</th></tr></thead>
+      <tbody>
+        <tr><td>Real serious bugs found, of the 74 either tool found</td><td class="n">65</td><td class="n">41</td></tr>
+        <tr><td>Serious findings judged wrong</td><td class="n">0</td><td class="n">7</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="note">32 bugs were found by both tools. Lacia's reviewer also saw each task's description. An AI of the same model family labeled the findings, and bugs both tools missed are not counted.</p>
+  <p class="note">This comparison led to the current design of two reviewers plus a verification step.</p>
+</section>
+
+<footer>Changwoo Park. <a href="https://www.linkedin.com/in/changwoo-park-4b94b1410/">LinkedIn</a></footer>
+</main>
+</body>
+</html>
