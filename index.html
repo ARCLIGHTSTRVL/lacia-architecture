@@ -293,6 +293,56 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
 </section>
 
 <section>
+  <h2>Review structure</h2>
+  <p class="note">Reviews run in a fresh context, apart from the session that did the work. Reviewers read the change in isolation, and code decides whether the round counts.</p>
+  <p class="hint">Scroll the graph sideways on a narrow screen.</p>
+  <div class="graph">
+    <svg viewBox="0 0 960 344" role="img" aria-label="The evidence bundle, review rules and task card go through a risk tier and a split into isolated finders. A verification call merges their findings. Code checks coverage from the tool log and stores a round record. Findings are answered, a close gate holds open findings, and the user accepts where the mode asks.">
+      <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+
+      <rect class="zn" x="16" y="14" width="190" height="210"/>
+      <text class="z" x="28" y="34">Inputs</text>
+      <rect class="bx" x="28" y="44" width="166" height="52"/><text class="b" x="111" y="66" text-anchor="middle">Evidence bundle</text><text class="s" x="111" y="85" text-anchor="middle">the change in git</text>
+      <rect class="bx" x="28" y="102" width="166" height="52"/><text class="b" x="111" y="124" text-anchor="middle">Review rules</text><text class="s" x="111" y="143" text-anchor="middle">skip and high lists</text>
+      <rect class="bx" x="28" y="160" width="166" height="52"/><text class="b" x="111" y="182" text-anchor="middle">Task card</text><text class="s" x="111" y="201" text-anchor="middle">purpose and impact</text>
+
+      <rect class="bx" x="230" y="44" width="150" height="80"/><text class="b" x="305" y="72" text-anchor="middle">Risk tier</text><text class="s" x="305" y="92" text-anchor="middle">set by file paths</text><text class="s" x="305" y="108" text-anchor="middle">low, medium, high</text>
+      <rect class="bx" x="230" y="136" width="150" height="88"/><text class="b" x="305" y="166" text-anchor="middle">Split</text><text class="s" x="305" y="186" text-anchor="middle">over 1,500 diff lines,</text><text class="s" x="305" y="202" text-anchor="middle">by whole files</text>
+      <path class="e" d="M206,84 H228" marker-end="url(#a4)"/><path class="e" d="M305,124 V134" marker-end="url(#a4)"/>
+
+      <rect class="zn" x="404" y="14" width="330" height="210"/>
+      <text class="z" x="416" y="34">Isolated: empty folder, read-only tools</text>
+      <rect class="bx" x="416" y="44" width="150" height="50"/><text class="b" x="491" y="65" text-anchor="middle">Finder A</text><text class="s" x="491" y="83" text-anchor="middle">sees the task and rules</text>
+      <rect class="bx" x="416" y="102" width="150" height="50"/><text class="b" x="491" y="123" text-anchor="middle">Finder B</text><text class="s" x="491" y="141" text-anchor="middle">sees only the code</text>
+      <rect class="bx" x="416" y="160" width="150" height="50"/><text class="b" x="491" y="181" text-anchor="middle">Security finder</text><text class="s" x="491" y="199" text-anchor="middle">medium, high tiers</text>
+      <path class="e" d="M380,180 H394 M394,69 V185"/>
+      <path class="e" d="M394,69 H414" marker-end="url(#a4)"/><path class="e" d="M394,127 H414" marker-end="url(#a4)"/><path class="e" d="M394,185 H414" marker-end="url(#a4)"/>
+      <rect class="bx" x="586" y="44" width="136" height="166"/>
+      <text class="b" x="654" y="104" text-anchor="middle">Verification</text><text class="s" x="654" y="124" text-anchor="middle">merges duplicates,</text><text class="s" x="654" y="140" text-anchor="middle">drops only findings</text><text class="s" x="654" y="156" text-anchor="middle">it shows wrong</text>
+      <path class="e" d="M566,69 H584" marker-end="url(#a4)"/><path class="e" d="M566,127 H584" marker-end="url(#a4)"/><path class="e" d="M566,185 H584" marker-end="url(#a4)"/>
+
+      <rect class="rc" x="758" y="44" width="186" height="80"/><text class="b" x="851" y="70" text-anchor="middle" style="fill:var(--record)">Coverage check</text><text class="s" x="851" y="90" text-anchor="middle">tool log must show</text><text class="s" x="851" y="106" text-anchor="middle">every changed file read</text>
+      <rect class="rc" x="758" y="136" width="186" height="88"/><text class="b" x="851" y="166" text-anchor="middle" style="fill:var(--record)">Round record</text><text class="s" x="851" y="186" text-anchor="middle">findings, merged and</text><text class="s" x="851" y="202" text-anchor="middle">dropped, tool log</text>
+      <path class="e" d="M722,84 H756" marker-end="url(#a4)"/><path class="e" d="M851,124 V134" marker-end="url(#a4)"/>
+
+      <path class="e" d="M851,224 V244 H121 V262" marker-end="url(#a4)"/>
+      <rect class="bx" x="16" y="264" width="210" height="66"/><text class="b" x="121" y="290" text-anchor="middle">Findings answered</text><text class="s" x="121" y="310" text-anchor="middle">every finding gets an answer</text>
+      <rect class="bx" x="250" y="264" width="210" height="66"/><text class="b" x="355" y="290" text-anchor="middle">Close gate</text><text class="s" x="355" y="310" text-anchor="middle">holds open important findings</text>
+      <rect class="us" x="484" y="264" width="210" height="66"/><text class="b" x="589" y="290" text-anchor="middle" style="fill:var(--user)">User acceptance</text><text class="u" x="589" y="310" text-anchor="middle">where the review mode asks</text>
+      <rect class="rc" x="718" y="264" width="226" height="66"/><text class="b" x="831" y="302" text-anchor="middle" style="fill:var(--record)">Completion record</text>
+      <path class="e" d="M226,297 H248" marker-end="url(#a4)"/><path class="e" d="M460,297 H482" marker-end="url(#a4)"/><path class="e" d="M694,297 H716" marker-end="url(#a4)"/>
+    </svg>
+  </div>
+  <p class="lane">Rules around a round</p>
+  <div class="flow">
+    <div class="node"><b>Unread files</b><span>A round that leaves a changed file unread is partial and counts as no review.</span></div>
+    <div class="node"><b>Low-risk work</b><span>Low-tier changes run one pass. Generated files are left out and listed by path.</span></div>
+    <div class="node"><b>Security findings</b><span>A fixed finding closes after a later complete round, a recheck, or a user act.</span></div>
+    <div class="node ask"><b>Round limit</b><span>After three complete rounds, the next round needs the user's answer.</span></div>
+  </div>
+</section>
+
+<section>
   <h2>Feature maps</h2>
   <div class="maps">
 
@@ -330,22 +380,6 @@ a:focus-visible{outline:2px solid var(--record);outline-offset:2px}
         <div class="node"><code>work close</code><span>review gate</span></div><span class="to">→</span>
         <div class="node rec"><b>Completion record</b><span>in the repository</span></div><span class="to">→</span>
         <div class="node"><code>cardinal done</code><span>read-back check</span></div>
-      </div>
-    </article>
-
-    <article class="map">
-      <h3>Code review</h3>
-      <p>Reviewers work in an empty folder through read-only tools over git objects. Lacia checks from the tool log that every changed file was read.</p>
-      <div class="flow">
-        <div class="node"><b>Inputs</b><span>evidence bundle, review rules, task card</span></div><span class="to">→</span>
-        <div class="node"><b>Split</b><span>changes over 1,500 diff lines go by file</span></div><span class="to">→</span>
-        <div class="node"><b>Finder A</b><span>sees the task and rules</span></div>
-        <div class="node"><b>Finder B</b><span>sees only the code</span></div>
-        <div class="node"><b>Security finder</b><span>medium and high tiers</span></div><span class="to">→</span>
-        <div class="node"><b>Verification</b><span>merges duplicates, drops only what it shows wrong</span></div><span class="to">→</span>
-        <div class="node rec"><b>Round record</b><span>findings and answers</span></div><span class="to">→</span>
-        <div class="node"><b>Close gate</b><span>holds on open important or security findings</span></div><span class="to">→</span>
-        <div class="node ask"><b>User</b><span>accepts where the mode asks</span></div>
       </div>
     </article>
 
